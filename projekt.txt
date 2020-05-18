@@ -1,0 +1,452 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdbool.h>
+#include <ctype.h>
+#define SUBOR "osemsmerovka.txt"
+#define VELKOST_ABECEDY 26
+#define MAX_DLZKA_SLOV 100+1
+#define VELKOST_INDEXU 5
+
+char** nacitanie_suboru( int *riadok, int *stlpec, int *pocet_slov);
+char **nacitanie_slov(int pocet_slov, int riadok);
+int* jednotlive_vyskyty(int velkost);
+void vypis_maticu(char **matica, int riadok, int stlpec);
+int **vytvor_index(char **matica, int *riadky_indexu, int riadok, int stlpec);
+void vypis_index(int **index, int *pocet_vyskytov);
+void pocet_vyskytov(char **matica, int riadok, int stlpec, int *abeceda);
+bool vyries_zdola(char **matica, int pozicia_x, int pozicia_y, char *slovo, int riadok);
+bool vyries_zhora(char **matica, int pozicia_x, int pozicia_y, char *slovo, int riadok);
+bool vyries_doprava(char **matica, int pozicia_x, int pozicia_y, char *slovo, int stlpec);
+bool vyries_dolava(char **matica, int pozicia_x, int pozicia_y, char *slovo, int stlpec);
+bool vyries_juhovychodne(char **matica, int pozicia_x, int pozicia_y, char *slovo, int riadok, int stlpec);
+bool vyries_juhozapadne(char **matica, int pozicia_x, int pozicia_y, char *slovo, int riadok, int stlpec);
+bool vyries_severovychodne(char **matica, int pozicia_x, int pozicia_y, char *slovo, int riadok, int stlpec);
+bool vyries_severozapadne(char **matica, int pozicia_x, int pozicia_y, char *slovo, int riadok, int stlpec);
+void vyries_osemsmerovku(char **matica, int **index, char **slova, int pocet_slov, int riadok, int stlpec, int *pocet_pismen);
+void uvolnenie(char **matica, int **index, char **slova, int *pocet_pismen, int stlpec, int pocet_slov);
+
+int main(){
+    int riadok = 0, stlpec = 0, pocet_slov=0;
+    int *pocet_pismen = jednotlive_vyskyty(VELKOST_ABECEDY);
+    char **osemsmerovka = nacitanie_suboru(&riadok, &stlpec, &pocet_slov);
+    char **slova = nacitanie_slov(pocet_slov, riadok);
+    pocet_vyskytov(osemsmerovka, riadok, stlpec, pocet_pismen);
+    int riadky_indexu[VELKOST_ABECEDY] = {0};
+    int **index = vytvor_index(osemsmerovka, riadky_indexu, riadok, stlpec);
+    vypis_index(index, pocet_pismen);
+    vyries_osemsmerovku(osemsmerovka, index, slova, pocet_slov, riadok, stlpec, pocet_pismen);
+    uvolnenie(osemsmerovka, index, slova, pocet_pismen, stlpec, pocet_slov);
+    return 0;
+}
+char** nacitanie_suboru(int *riadok, int *stlpec, int *pocet_slov){
+    char **osemsmerovka;
+    FILE *fr;
+    if ((fr=fopen(SUBOR, "r"))==NULL){
+        printf("Subor sa nepodarilo otvort.\n");
+        return 0;
+    }
+    fscanf(fr, "%d %d\n", riadok, stlpec);
+    osemsmerovka = (char **) malloc (*riadok * sizeof(char *));
+    for (int i=0; i<*riadok;i++){
+        osemsmerovka[i] = (char *) malloc (*stlpec * sizeof(char));
+        for (int j=0; j<*stlpec; j++) {
+            fscanf(fr, "%c", &osemsmerovka[i][j]);
+        }
+        fgetc(fr);
+    }
+    char c;
+    int n=0;
+    //Pocet slov
+    while ((c=getc(fr))!=EOF){
+        if (c=='\n')
+            n++;
+    }
+    n=n-1;
+    *pocet_slov=n;
+
+
+    if (fclose(fr)==EOF){
+        printf("Subor sa nepodarilo zatovrit.\n");
+        return 0;
+    }
+    return osemsmerovka;
+}
+
+char **nacitanie_slov(int pocet_slov, int riadok){
+    char **slova;
+    FILE *fr;
+    if ((fr=fopen(SUBOR, "r"))==NULL){
+        printf("Subor sa nepodarilo otvort.\n");
+        return 0;
+    }
+    slova = (char **) malloc(pocet_slov * sizeof(char*));
+    for (int i=0; i<pocet_slov; i++){
+        slova[i] = (char*) malloc(MAX_DLZKA_SLOV * sizeof(char));
+    }
+    char c;
+    int n=0;
+    while ((c=getc(fr))!=EOF){
+        if (c=='\n')
+            n++;
+        if (n-1==riadok)
+            break;
+    }
+    for (int i=0; i<pocet_slov; i++){
+        fscanf(fr, "%s", slova[i]);
+    }
+    if (fclose(fr)==EOF){
+        printf("Subor sa nepodarilo zatovrit.\n");
+        return 0;
+    }
+    return slova;
+}
+
+int* jednotlive_vyskyty(int velkost){
+    int *pocet_pismen = (int *) malloc(velkost * sizeof(int));
+    memset(pocet_pismen, 0, velkost* sizeof(int));
+    return pocet_pismen;
+}
+
+void vypis_maticu(char **matica, int riadok, int stlpec){
+    for (int i=0; i<riadok; i++){
+        for (int j=0; j<stlpec; j++){
+            printf("%c", matica[i][j]);
+        }
+        putchar('\n');
+    }
+    putchar('\n');
+}
+
+int **vytvor_index(char **matica, int *riadky_indexu, int riadok, int stlpec){
+    int **index;
+    int alokovany_index[VELKOST_ABECEDY];
+    //Vymedzujem pamat pre index
+    index = (int **) malloc(VELKOST_ABECEDY * sizeof(int *));
+    //Pre kazde pismeno 2x lebo potebujem 2 hodnoty ako suradnicu
+    for (int i=0; i<VELKOST_ABECEDY; i++) {
+        index[i] = (int *) malloc(2 * VELKOST_INDEXU * sizeof(int));
+        alokovany_index[i] = 2* VELKOST_INDEXU;
+    }
+    //Iteruje cez riadky a stlpce matice, char c sa zapise ako pismeno na aktualny index matice
+    for (int i=0; i<riadok; i++){
+        for (int j=0; j<stlpec; j++){
+            char c=matica[i][j];
+            if (riadky_indexu[c-'A'] >= alokovany_index[c-'A']){
+                index[c-'A'] = (int *) realloc(index[c-'A'], (2 + alokovany_index[c-'A']) * sizeof(int));
+                alokovany_index[c-'A']+= 2;
+            }
+            index[c-'A'][riadky_indexu[c-'A']++]=i;
+            index[c-'A'][riadky_indexu[c-'A']++]=j;
+        }
+    }
+    return index;
+}
+void vypis_index(int **index, int *pocet_vyskytov){
+    char c='A';
+    for (int i=0; i<26; i++){
+        printf("%c: ", c++);
+        for (int j = 0; j<2*(pocet_vyskytov[c-'A'-1]); j++) {
+            printf("%d ", index[i][j]);
+        }
+        putchar('\n');
+    }
+}
+
+void pocet_vyskytov(char **matica, int riadok, int stlpec, int *abeceda){
+    for (int i=0; i<riadok; i++){
+        for (int j=0; j<stlpec; j++){
+            char c = matica[i][j];
+            abeceda[c-'A']++;
+        }
+    }
+    char pismeno='A';
+    for (int m=0; m<VELKOST_ABECEDY; m++)
+        printf("%c:%d\n", pismeno++, abeceda[m]);
+}
+
+bool vyries_zhora(char **matica, int pozicia_x, int pozicia_y, char *slovo, int riadok){
+    bool vysledok = true;
+    int pozicia_v_slove = 0;
+    int i = pozicia_x;
+    while (i<riadok && pozicia_v_slove<strlen(slovo)){
+        if (tolower(matica[i][pozicia_y]) != tolower(slovo[pozicia_v_slove])){
+            vysledok = false;
+            break;
+        }
+
+        i++;
+        pozicia_v_slove++;
+    }
+    if (pozicia_v_slove != strlen(slovo)){
+        return false;
+    }
+    if (vysledok){
+        for (int k=0; k<strlen(slovo); k++) {
+            matica[k + pozicia_x][pozicia_y] = tolower(matica[k + pozicia_x][pozicia_y]);
+        }
+    }
+    return vysledok;
+}
+
+bool vyries_zdola(char **matica, int pozicia_x, int pozicia_y, char *slovo, int riadok){
+    bool vysledok = true;
+    int pozicia_v_slove = 0;
+    int i = pozicia_x;
+    while (i>=0 && pozicia_v_slove<strlen(slovo)){
+        if (tolower(matica[i][pozicia_y]) != tolower(slovo[pozicia_v_slove])){
+            vysledok = false;
+            break;
+        }
+
+        i--;
+        pozicia_v_slove++;
+    }
+    if (pozicia_v_slove != strlen(slovo)){
+        return false;
+    }
+    if (vysledok){
+        for (int k=strlen(slovo)-1; k>=0; k--) {
+            matica[pozicia_x - k][pozicia_y] = tolower(matica[pozicia_x - k][pozicia_y]);
+        }
+    }
+    return vysledok;
+}
+
+bool vyries_doprava(char **matica, int pozicia_x, int pozicia_y, char *slovo, int stlpec) {
+    bool vysledok = true;
+    int pozicia_v_slove = 0;
+    int i = pozicia_y;
+    while (i<stlpec && pozicia_v_slove<strlen(slovo)){
+        if (tolower(matica[pozicia_x][i]) != tolower(slovo[pozicia_v_slove])){
+            vysledok =  false;
+            break;
+        }
+        i++;
+        pozicia_v_slove++;
+    }
+    if (pozicia_v_slove != strlen(slovo)){
+        return false;
+    }
+    if (vysledok){
+        for (int k = 0; k < strlen(slovo); k++) {
+            matica[pozicia_x][k + pozicia_y] = tolower(matica[pozicia_x][k + pozicia_y]);
+        }
+    }
+    return vysledok;
+}
+
+bool vyries_dolava(char **matica, int pozicia_x, int pozicia_y, char *slovo, int stlpec){
+    bool vysledok = true;
+    int pozicia_v_slove = 0;
+    int i = pozicia_y;
+    while (i>=0 && pozicia_v_slove < strlen(slovo)){
+        if(tolower(matica[pozicia_x][i]) != tolower(slovo[pozicia_v_slove])){
+            vysledok = false;
+            break;
+        }
+        i--;
+        pozicia_v_slove++;
+    }
+    if (pozicia_v_slove != strlen(slovo)){
+        return false;
+    }
+    if (vysledok){
+        for (int k = strlen(slovo)-1; k>=0; k--){
+            matica[pozicia_x][pozicia_y-k] = tolower(matica[pozicia_x][pozicia_y-k]);
+        }
+    }
+    return vysledok;
+}
+//Z laveho horneho rohu
+bool vyries_juhovychodne(char **matica, int pozicia_x, int pozicia_y, char *slovo, int riadok, int stlpec){
+    bool vysledok = true;
+    int pozicia_v_slove = 0;
+    int i = pozicia_x;
+    int j = pozicia_y;
+    while(pozicia_v_slove<strlen(slovo) && i<riadok && j<stlpec){
+        if ( (tolower(matica[i][j])) != tolower(slovo[pozicia_v_slove]) ){
+            vysledok = false;
+            break;
+        }
+        i++;
+        j++;
+        pozicia_v_slove++;
+        }
+    if (pozicia_v_slove!=strlen(slovo)){
+        return false;
+    }
+    if (vysledok){
+        int m = 0;
+        for (int k = 0; k<strlen(slovo); k++){
+                matica[pozicia_x + k][pozicia_y + m] = tolower(matica[pozicia_x + k][pozicia_y + m]);
+                m++;
+        }
+
+    }
+    return vysledok;
+}
+//Z praveho horneho rohu
+bool vyries_juhozapadne(char **matica, int pozicia_x, int pozicia_y, char *slovo, int riadok, int stlpec){
+    bool vysledok = true;
+    int pozicia_v_slove = 0;
+    int i = pozicia_x;
+    int j = pozicia_y;
+    while(i<riadok && j>=0 && pozicia_v_slove<strlen(slovo)){
+        if ( (tolower(matica[i][j])) != tolower(slovo[pozicia_v_slove]) ){
+            vysledok = false;
+            break;
+        }
+        i++;
+        j--;
+        pozicia_v_slove++;
+    }
+    if (pozicia_v_slove!=strlen(slovo)){
+        return false;
+    }
+    if (vysledok){
+        int m = 0;
+        for (int k = 0; k<strlen(slovo); k++){
+                matica[pozicia_x + k][pozicia_y - m] = tolower(matica[pozicia_x + k][pozicia_y - m]);
+                m++;
+            }
+        }
+    return vysledok;
+}
+//Z laveho dolneho rohu
+bool vyries_severovychodne(char **matica, int pozicia_x, int pozicia_y, char *slovo, int riadok, int stlpec){
+    bool vysledok = true;
+    int pozicia_v_slove = 0;
+    int i = pozicia_x;
+    int j = pozicia_y;
+    while(i>=0 && j<stlpec && pozicia_v_slove<strlen(slovo)){
+        if ( (tolower(matica[i][j])) != tolower(slovo[pozicia_v_slove]) ){
+            vysledok = false;
+            break;
+        }
+        i--;
+        j++;
+        pozicia_v_slove++;
+    }
+    if (pozicia_v_slove!=strlen(slovo)){
+        return false;
+    }
+    if (vysledok){
+        int k=0;
+        for (int m = 0; m<strlen(slovo); m++){
+                matica[pozicia_x - k][pozicia_y + m] = tolower(matica[pozicia_x - k][pozicia_y + m]);
+                k++;
+        }
+
+    }
+    return vysledok;
+}
+//Z praveho dolneho rohu
+bool vyries_severozapadne(char **matica, int pozicia_x, int pozicia_y, char *slovo, int riadok, int stlpec) {
+    bool vysledok = true;
+    int pozicia_v_slove = 0;
+    int i = pozicia_x;
+    int j = pozicia_y;
+    while (i >= 0 && j >= 0 && pozicia_v_slove < strlen(slovo)) {
+        if ((tolower(matica[i][j])) != tolower(slovo[pozicia_v_slove])) {
+            vysledok = false;
+            break;
+        }
+        i--;
+        j--;
+        pozicia_v_slove++;
+    }
+    if (pozicia_v_slove != strlen(slovo)) {
+        return false;
+    }
+    if (vysledok) {
+        int k = 0;
+        for (int m = 0; m < strlen(slovo); m++) {
+            matica[pozicia_x - k][pozicia_y - m] = tolower(matica[pozicia_x - k][pozicia_y - m]);
+            k++;
+        }
+    }
+    return vysledok;
+}
+
+void vyries_osemsmerovku(char **matica, int **index, char **slova, int pocet_slov, int riadok, int stlpec, int *pocet_pismen ){
+    for (int i=0; i<pocet_slov; i++){
+        char *slovo = slova[i];
+        bool najdene = false;
+        for (int j = 0; j < 2 * pocet_pismen[slovo[0]-'A']; j+=2){
+            int pozicia_x = index[slovo[0]-'A'][j];
+            int pozicia_y = index[slovo[0]-'A'][j+1];
+            if (vyries_zdola(matica, pozicia_x, pozicia_y, slovo, riadok)){
+                vypis_maticu(matica, riadok, stlpec);
+                //printf("%s\n\n", slovo);
+                najdene  =true;
+            }
+            if (vyries_zhora(matica, pozicia_x, pozicia_y, slovo, riadok)){
+                vypis_maticu(matica, riadok, stlpec);
+                //printf("%s\n\n", slovo);
+                najdene  =true;
+            }
+            if (vyries_doprava(matica, pozicia_x, pozicia_y, slovo, stlpec)){
+                vypis_maticu(matica, riadok, stlpec);
+                //printf("%s\n\n", slovo);
+                najdene  =true;
+            }
+            if (vyries_dolava(matica, pozicia_x, pozicia_y, slovo, stlpec)){
+                vypis_maticu(matica, riadok, stlpec);
+                //printf("%s\n\n", slovo);
+                najdene  =true;
+            }
+            if (vyries_juhovychodne(matica, pozicia_x, pozicia_y, slovo, riadok, stlpec)){
+                vypis_maticu(matica, riadok, stlpec);
+                //printf("%s\n\n", slovo);
+                najdene  =true;
+            }
+            if (vyries_juhozapadne(matica, pozicia_x, pozicia_y, slovo, riadok, stlpec)){
+                vypis_maticu(matica, riadok, stlpec);
+                //printf("%s\n\n", slovo);
+                najdene  =true;
+            }
+            if (vyries_severovychodne(matica, pozicia_x, pozicia_y, slovo, riadok, stlpec)){
+                vypis_maticu(matica, riadok, stlpec);
+                //printf("%s\n\n", slovo);
+                najdene  =true;
+            }
+            if (vyries_severozapadne(matica, pozicia_x, pozicia_y, slovo, riadok, stlpec)) {
+                vypis_maticu(matica, riadok, stlpec);
+                //printf("%s\n\n", slovo);
+                najdene  =true;
+            }
+        }
+        if (najdene ==false){
+            printf("Slovo %s sa nepodarilo najst.\n\n", slovo);
+        }
+    }
+    bool je_vyriesena = true;
+    for (int i = 0; i< riadok; i++) {
+        for (int j = 0; j < stlpec; j++) {
+            if (isupper(matica[i][j])) {
+                printf("%c", matica[i][j]);
+                je_vyriesena = false;
+            }
+        }
+    }
+    if (je_vyriesena)
+        printf("Tajnicka je prazdna.\n");
+}
+
+void uvolnenie(char **matica, int **index, char **slova, int *pocet_pismen, int stlpec, int pocet_slov){
+    free(pocet_pismen);
+    for (int i=0; i<stlpec; i++){
+        free(matica[i]);
+    }
+    free(matica);
+    for (int i = 0; i<pocet_slov; i++){
+        free(index[i]);
+    }
+    free(index);
+    for (int i=0; i<pocet_slov; i++){
+        free(slova[i]);
+    }
+    free(slova);
+}
+
