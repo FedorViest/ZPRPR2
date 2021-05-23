@@ -24,7 +24,9 @@ bool vyries_juhozapadne(char **matica, int pozicia_x, int pozicia_y, char *slovo
 bool vyries_severovychodne(char **matica, int pozicia_x, int pozicia_y, char *slovo, int riadok, int stlpec);
 bool vyries_severozapadne(char **matica, int pozicia_x, int pozicia_y, char *slovo, int riadok, int stlpec);
 void vyries_osemsmerovku(char **matica, int **index, char **slova, int pocet_slov, int riadok, int stlpec, int *pocet_pismen);
-void uvolnenie(char **matica, int **index, char **slova, int *pocet_pismen, int stlpec, int pocet_slov);
+void uvolnenie(char **matica, int **index, char **slova, int *pocet_pismen, int riadok, int pocet_slov);
+int kontrolaSum(char **matica, int riadok, int stlpec);
+void zmenIndex(char **matica, int riadok, int stlpec, int **index, int vymaz_riadok, int *riadky_indexu);
 
 int main(){
     int riadok = 0, stlpec = 0, pocet_slov=0;
@@ -36,7 +38,18 @@ int main(){
     int **index = vytvor_index(osemsmerovka, riadky_indexu, riadok, stlpec);
     vypis_index(index, pocet_pismen);
     vyries_osemsmerovku(osemsmerovka, index, slova, pocet_slov, riadok, stlpec, pocet_pismen);
-    uvolnenie(osemsmerovka, index, slova, pocet_pismen, stlpec, pocet_slov);
+    if (kontrolaSum(osemsmerovka, riadok, stlpec))
+        printf("\nSucty su rovnake\n");
+    else
+        printf("\nSucty nie su rovnake\n");
+    int vymaz_riadok;
+    /*scanf("%d", &vymaz_riadok);
+    if (vymaz_riadok<0 || vymaz_riadok>riadok){
+       printf("Nespravny vstup\n");
+       return 0;
+    }*/
+    //zmenIndex(osemsmerovka, riadok, stlpec, index, vymaz_riadok, riadky_indexu);
+    uvolnenie(osemsmerovka, index, slova, pocet_pismen, riadok, pocet_slov);
     return 0;
 }
 char** nacitanie_suboru(int *riadok, int *stlpec, int *pocet_slov){
@@ -132,9 +145,9 @@ int **vytvor_index(char **matica, int *riadky_indexu, int riadok, int stlpec){
     for (int i=0; i<riadok; i++){
         for (int j=0; j<stlpec; j++){
             char c=matica[i][j];
-            if (riadky_indexu[c-'A'] >= alokovany_index[c-'A']){
-                index[c-'A'] = (int *) realloc(index[c-'A'], (2 + alokovany_index[c-'A']) * sizeof(int));
-                alokovany_index[c-'A']+= 2;
+            if (riadky_indexu[c-'A'] >= alokovany_index[c-'A']) {
+                index[c - 'A'] = (int *) realloc(index[c - 'A'], (VELKOST_INDEXU + alokovany_index[c - 'A']) * sizeof(int));
+                alokovany_index[c - 'A'] += 2;
             }
             index[c-'A'][riadky_indexu[c-'A']++]=i;
             index[c-'A'][riadky_indexu[c-'A']++]=j;
@@ -144,7 +157,7 @@ int **vytvor_index(char **matica, int *riadky_indexu, int riadok, int stlpec){
 }
 void vypis_index(int **index, int *pocet_vyskytov){
     char c='A';
-    for (int i=0; i<26; i++){
+    for (int i=0; i<VELKOST_ABECEDY; i++){
         printf("%c: ", c++);
         for (int j = 0; j<2*(pocet_vyskytov[c-'A'-1]); j++) {
             printf("%d ", index[i][j]);
@@ -160,9 +173,9 @@ void pocet_vyskytov(char **matica, int riadok, int stlpec, int *abeceda){
             abeceda[c-'A']++;
         }
     }
-    char pismeno='A';
+    /*char pismeno='A';
     for (int m=0; m<VELKOST_ABECEDY; m++)
-        printf("%c:%d\n", pismeno++, abeceda[m]);
+        printf("%c:%d\n", pismeno++, abeceda[m]);*/
 }
 
 bool vyries_zhora(char **matica, int pozicia_x, int pozicia_y, char *slovo, int riadok){
@@ -434,9 +447,9 @@ void vyries_osemsmerovku(char **matica, int **index, char **slova, int pocet_slo
         printf("Tajnicka je prazdna.\n");
 }
 
-void uvolnenie(char **matica, int **index, char **slova, int *pocet_pismen, int stlpec, int pocet_slov){
+void uvolnenie(char **matica, int **index, char **slova, int *pocet_pismen, int riadok, int pocet_slov){
     free(pocet_pismen);
-    for (int i=0; i<stlpec; i++){
+    for (int i=0; i<riadok; i++){
         free(matica[i]);
     }
     free(matica);
@@ -449,4 +462,238 @@ void uvolnenie(char **matica, int **index, char **slova, int *pocet_pismen, int 
     }
     free(slova);
 }
+
+int kontrolaSum(char **matica, int riadok, int stlpec){
+    int sucet_severozapadne=0, sucet_juhovychodne = 0;
+    char c;
+    if (riadok%2==0 && stlpec%2==0){
+        //Vlavo hore
+        for (int i=0; i<riadok/2; i++){
+            for (int j=0; j<stlpec/2; j++){
+                if (matica[i][j]>='a' && matica[i][j]<='z') {
+                    c = matica[i][j]-'a';
+                }
+                else {
+                    c = matica[i][j]-'A';
+                }
+                sucet_juhovychodne +=c;
+            }
+        }
+        //Vpravo dole
+        for (int i=riadok/2; i<riadok; i++){
+            for (int j = stlpec/2; j<stlpec; j++){
+                if (matica[i][j]>='a' && matica[i][j]<='z'){
+                    c = matica[i][j]-'a';
+                }
+                else{
+                    c = matica[i][j]-'A';
+                }
+                sucet_juhovychodne+=c;
+            }
+        }
+        //Vlavo dole
+        for (int i=riadok/2; i<riadok; i++){
+            for (int j=0; j<stlpec/2; j++){
+                if (matica[i][j]>='a' && matica[i][j]<='z') {
+                    c = matica[i][j]-'a';
+                }
+                else{
+                    c=matica[i][j]-'A';
+                }
+                sucet_severozapadne+=c;
+            }
+        }
+        //Vpravo hore
+        for (int i = 0; i<riadok/2; i++){
+            for (int j = stlpec/2; j<stlpec; j++){
+                if (matica[i][j]>='a' && matica[i][j]<='z') {
+                    c = matica[i][j] - 'a';
+                }
+                else{
+                    c = matica[i][j]-'A';
+                }
+                sucet_severozapadne+=c;
+            }
+        }
+    }
+    if (riadok%2==1 && stlpec%2==0){
+        //Vlavo hore
+        for (int i=0; i<riadok/2; i++){
+            for (int j=0; j<stlpec/2; j++){
+                if (matica[i][j]>='a' && matica[i][j]<='z') {
+                    c = matica[i][j]-'a';
+                }
+                else {
+                    c = matica[i][j]-'A';
+                }
+                sucet_juhovychodne +=c;
+            }
+        }
+        //Vpravo dole
+        for (int i=riadok/2+1; i<riadok; i++){
+            for (int j = stlpec/2; j<stlpec; j++){
+                if (matica[i][j]>='a' && matica[i][j]<='z'){
+                    c = matica[i][j]-'a';
+                }
+                else{
+                    c = matica[i][j]-'A';
+                }
+                sucet_juhovychodne+=c;
+            }
+        }
+        //Vlavo dole
+        for (int i=riadok/2+1; i<riadok; i++){
+            for (int j=0; j<stlpec/2; j++){
+                if (matica[i][j]>='a' && matica[i][j]<='z') {
+                    c = matica[i][j]-'a';
+                }
+                else{
+                    c=matica[i][j]-'A';
+                }
+                sucet_severozapadne+=c;
+            }
+        }
+        //Vpravo hore
+        for (int i = 0; i<riadok/2; i++){
+            for (int j = stlpec/2; j<stlpec; j++){
+                if (matica[i][j]>='a' && matica[i][j]<='z') {
+                    c = matica[i][j] - 'a';
+                }
+                else{
+                    c = matica[i][j]-'A';
+                }
+                sucet_severozapadne+=c;
+            }
+        }
+    }
+    if (riadok%2==0 && stlpec%2==1){
+        //Vlavo hore
+        for (int i=0; i<riadok/2; i++){
+            for (int j=0; j<stlpec/2; j++){
+                if (matica[i][j]>='a' && matica[i][j]<='z') {
+                    c = matica[i][j]-'a';
+                }
+                else {
+                    c = matica[i][j]-'A';
+                }
+                sucet_juhovychodne +=c;
+            }
+        }
+        //Vpravo dole
+        for (int i=riadok/2; i<riadok; i++){
+            for (int j = stlpec/2+1; j<stlpec; j++){
+                if (matica[i][j]>='a' && matica[i][j]<='z'){
+                    c = matica[i][j]-'a';
+                }
+                else{
+                    c = matica[i][j]-'A';
+                }
+                sucet_juhovychodne+=c;
+            }
+        }
+
+        //Vlavo dole
+        for (int i=riadok/2; i<riadok; i++){
+            for (int j=0; j<stlpec/2; j++){
+                if (matica[i][j]>='a' && matica[i][j]<='z') {
+                    c = matica[i][j]-'a';
+                }
+                else{
+                    c=matica[i][j]-'A';
+                }
+                sucet_severozapadne+=c;
+            }
+        }
+        //Vpravo hore
+        for (int i = 0; i<riadok/2; i++){
+            for (int j = stlpec/2+1; j<stlpec; j++){
+                if (matica[i][j]>='a' && matica[i][j]<='z') {
+                    c = matica[i][j] - 'a';
+                }
+                else{
+                    c = matica[i][j]-'A';
+                }
+                sucet_severozapadne+=c;
+            }
+        }
+    }
+    if (riadok%2==1 && stlpec%2==1){
+        //Vlavo hore
+        for (int i=0; i<riadok/2; i++){
+            for (int j=0; j<stlpec/2; j++){
+                if (matica[i][j]>='a' && matica[i][j]<='z') {
+                    c = matica[i][j]-'a';
+                }
+                else {
+                    c = matica[i][j]-'A';
+                }
+                sucet_juhovychodne +=c;
+            }
+        }
+        //Vpravo dole
+
+        for (int i=riadok/2+1; i<riadok; i++) {
+            for (int j = stlpec / 2 + 1; j < stlpec; j++) {
+                if (matica[i][j] >= 'a' && matica[i][j] <= 'z') {
+                    c = matica[i][j] - 'a';
+                } else {
+                    c = matica[i][j] - 'A';
+                }
+                sucet_juhovychodne += c;
+            }
+        }
+
+        //Vlavo dole
+        for (int i=riadok/2+1; i<riadok; i++){
+            for (int j=0; j<stlpec/2; j++){
+                if (matica[i][j]>='a' && matica[i][j]<='z') {
+                    c = matica[i][j]-'a';
+                }
+                else{
+                    c=matica[i][j]-'A';
+                }
+                sucet_severozapadne+=c;
+            }
+        }
+        //Vpravo hore
+        for (int i = 0; i<riadok/2; i++){
+            for (int j = stlpec/2+1; j<stlpec; j++){
+                if (matica[i][j]>='a' && matica[i][j]<='z') {
+                    c = matica[i][j] - 'a';
+                }
+                else{
+                    c = matica[i][j]-'A';
+                }
+                sucet_severozapadne+=c;
+            }
+        }
+    }
+    //printf("\n%d %d\n", sucet_juhovychodne, sucet_severozapadne);
+    if (sucet_juhovychodne == sucet_severozapadne)
+        return 1;
+    else
+        return 0;
+}
+
+void zmenIndex(char **matica, int riadok, int stlpec, int **index, int vymaz_riadok, int *riadky_indexu){
+    char *temp;
+    temp = (char*) malloc (stlpec * sizeof(int));
+    for (int i=vymaz_riadok; i<=vymaz_riadok; i++){
+        for (int j=0; j<stlpec; j++){
+            temp[j] = toupper((matica[i][j]));
+            printf("%c", temp[j]);
+        }
+        putchar('\n');
+    }
+    for (int i=0; i<riadok; i++){
+        char c = temp[i];
+        printf("%d", c);
+        for (int j=0; j<stlpec; j++) {
+            index[c-'A'][riadky_indexu[c-'A']++]=i;
+            index[c-'A'][riadky_indexu[c-'A']++]=j;
+        }
+        printf("%c: %d %d\n", temp[i], vymaz_riadok, index[c-'A'][riadky_indexu[c-'A']]);
+    }
+}
+
 
